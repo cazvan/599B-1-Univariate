@@ -1,0 +1,225 @@
+---
+title: "599B Final Project (Caz VanDevere, Hanson Shi, Ana Chkeidze)"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+ 
+
+```
+## Loading required package: lattice
+```
+
+```
+## Loading required package: plyr
+```
+
+```
+## Loading required package: magrittr
+```
+
+```
+## 
+## Attaching package: 'ggpubr'
+```
+
+```
+## The following object is masked from 'package:plyr':
+## 
+##     mutate
+```
+
+```
+## 
+## Attaching package: 'dplyr'
+```
+
+```
+## The following objects are masked from 'package:plyr':
+## 
+##     arrange, count, desc, failwith, id, mutate, rename, summarise,
+##     summarize
+```
+
+```
+## The following objects are masked from 'package:stats':
+## 
+##     filter, lag
+```
+
+```
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+```
+
+```
+## Loading required package: survival
+```
+
+```
+## Loading required package: Formula
+```
+
+```
+## 
+## Attaching package: 'Hmisc'
+```
+
+```
+## The following objects are masked from 'package:dplyr':
+## 
+##     src, summarize
+```
+
+```
+## The following objects are masked from 'package:plyr':
+## 
+##     is.discrete, summarize
+```
+
+```
+## The following objects are masked from 'package:base':
+## 
+##     format.pval, units
+```
+
+
+```r
+#import data (~250mb):
+# datalink='https://dl.dropboxusercontent.com/s/rpjq0x1bgzgdvh1/BRFSS599B.dta'
+# brfssdata_orig=read_dta(datalink)
+# ```
+# 
+# ```{r loaddata, eval=TRUE, echo=FALSE}
+# #trim dataframe:
+# brfssdata2=brfssdata_orig%>%
+#    select(mental, stab, ex2014,sex, year)%>%
+#    filter(!is.na(stab))%>%
+#    filter(!is.na(mental))%>%
+#    filter(!is.na(year))%>%
+#    filter(!is.na(ex2014))%>%
+#    filter(!is.na(sex))%>%
+#    filter((year!=2018))
+# write.csv(brfssdata2,"brfss2.csv",row.names = FALSE)
+# head(brfssdata2)
+# dim(brfssdata2)
+# brfssdata2 = read.csv("brfss2.csv")
+# ```
+# 
+# ```{r loaddata, eval=TRUE, echo=FALSE}
+# #trim dataframe:
+# brfssdata=brfssdata_orig%>%
+#    select(mental, stab, ex2014,ex2016, year)%>%
+#    filter(!is.na(stab))%>%
+#    filter(!is.na(mental))%>%
+#    filter(!is.na(year))%>%
+#    filter(!is.na(ex2014))%>%
+#    filter(!is.na(ex2016))%>%
+#    filter((year!=2018))
+# write.csv(brfssdata2,"brfss.csv",row.names = FALSE)
+# head(brfssdata)
+# dim(brfssdata)
+# brfssdata2 = read.csv("brfss.csv")
+```
+
+
+```r
+# import data (~90mb):
+brfssdata=read.csv("https://github.com/cazvan/599B_Final/raw/master/brfss.csv")
+brfssdata2=read.csv("https://github.com/cazvan/599B_Final/raw/master/brfss2.csv")
+```
+
+
+
+```r
+#these four states expanded ACA after 2014 ("AK" "LA" "MT" "PA"):
+brfssdata$stab=as.character(brfssdata$stab)
+
+bad=unique(brfssdata$stab[(brfssdata$ex2014 == 0 & brfssdata$ex2016 == 1)])
+bad
+```
+
+```
+## character(0)
+```
+
+
+```r
+#Data prep for visualization: Calculating annual mental averages grouped (expansion and non-expansion groups separated)
+#dataframe
+#pipe=%>% (this is from dplyr) 
+dfmelt=brfssdata%>%
+  select(year, stab, mental, ex2014)%>%
+  filter(stab %nin% bad)%>%
+  filter(!is.na(ex2014))%>%
+  group_by(year,ex2014)%>%
+  mutate(mentavg=mean(mental, na.rm = TRUE))%>%
+  ungroup()%>%
+  select(year, ex2014,mentavg)%>%
+  unique()%>%
+  mutate(ex2014=ifelse(ex2014==0, "No Expansion", "Expansion"))
+#View(dfmelt)
+```
+
+
+```r
+#Data prep for visualization: Calculating annual mental averages ungrouped (expansion and non-expansion groups together, by year)
+#dataframe
+#pipe=%>% (this is from dplyr) 
+dfmelt2=brfssdata%>%
+  select(year, stab, mental)%>%
+  filter(stab %nin% bad)%>%
+  group_by(year)%>%
+  mutate(mentavg2=mean(mental, na.rm = TRUE))%>%
+  ungroup()%>%
+  select(year,mentavg2)%>%
+  unique()
+#View(dfmelt2)
+```
+
+
+```r
+#Univariate Visualization #1: Barplot
+source1="BRFSS Survey Data 2000-2018"
+title1="Survey Count by Year"
+
+yearplot=ggplot(data= brfssdata, aes(x=year)) +
+  geom_bar(stat = "count", fill="steelblue") +
+  labs(title=title1, x=NULL, y=NULL,caption=source1) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_x_continuous(breaks=c(2000:2017)) +
+  theme(panel.background = element_rect(fill = "white",colour = "grey50"),
+                              plot.caption = element_text(hjust = 0), # default was 1
+                              plot.title = element_text(hjust = 0.5),
+                              axis.text.x = element_text(angle = -30, hjust = 0))
+yearplot
+```
+
+<img src="index_files/figure-html/unnamed-chunk-5-1.png" width="672" />
+
+
+```r
+#Univariate Visualization #2: Line Plot
+source1="BRFSS Survey Data 2000-2018"
+title1="Average Negative Mental Health Days Over Last 30 Days"
+
+ggplot(dfmelt2,aes(x=year, y = mentavg2)) +
+  labs(title=title1, x="Year", y="Days",caption=source1) +
+  geom_line(color="steelblue",aes(), show.legend = TRUE) +
+  #geom_vline(xintercept=2014) +
+  scale_x_continuous(breaks=c(2000:2017)) +
+  theme(panel.background = element_rect(fill = "white",colour = "grey50"),
+                              plot.caption = element_text(hjust = 0), # default was 1
+                              plot.title = element_text(hjust = 0.5),
+                              axis.text.x = element_text(angle = 30, hjust = 1)) +
+  geom_hline(yintercept = mean(dfmelt2$mentavg2), #where
+                           linetype="dashed", 
+                           size=1, #thickness
+                           alpha=0.5)+
+  theme(legend.title = element_blank())+
+  annotate("text",x=2017,y=3.455,label="mean",size=3,alpha=0.7)
+```
+
+<img src="index_files/figure-html/unnamed-chunk-6-1.png" width="672" />
